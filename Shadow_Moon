@@ -1,0 +1,641 @@
+-- ==========================================
+-- RAYFIELD INITIALIZATION & THEME SETUP
+-- ==========================================
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "⚡ Shadow Sun | สคริปต์ฮับพรีเมียม V2 ⚡",
+    LoadingTitle = "🌐 กำลังโหลดระบบ Shadow Sun Engine...",
+    LoadingSubtitle = "สร้างโดย: ซัน (Sun)",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "ShadowSunHub",
+        FileName = "Config"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "",
+        RememberJoins = true
+    },
+    KeySystem = false,
+    Theme = "Bloom"
+})
+
+-- ==========================================
+-- SERVICES & LOCAL VARIABLES
+-- ==========================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = Workspace.CurrentCamera
+
+-- Global Colors
+local PrimaryColor = Color3.fromRGB(180, 50, 255)
+local ESPColor = Color3.fromRGB(255, 0, 128)
+
+-- Silent Aim & Wallbang Settings
+local SilentAimEnabled = false
+local WallbangEnabled = false
+local TeamCheck = false
+local AimPart = "Head"
+local FOVRadius = 150
+local ShowFOV = false
+local FOVTransparency = 0.8
+
+-- Hitbox Settings
+local HitboxEnabled = false
+local HitboxSize = 2
+local HitboxTransparency = 0.5
+local OriginalSizes = {}
+
+-- ESP Settings
+local ESPMode = "Off"
+local TracersEnabled = false
+local NameESPEnabled = false
+local ESPObjects = {}
+local Tracers = {}
+local NameTags = {}
+
+-- Teleport Settings
+local SelectedPlayerName = ""
+
+-- Player & Movement Settings
+local WalkSpeedValue = 16
+local JumpPowerValue = 50
+local SpeedEnabled = false
+local JumpEnabled = false
+local InfJumpEnabled = false
+local NoclipEnabled = false
+
+-- ==========================================
+-- DRAWING ELEMENTS (FOV CIRCLE)
+-- ==========================================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = PrimaryColor
+FOVCircle.Thickness = 1.8
+FOVCircle.NumSides = 60
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+FOVCircle.Transparency = FOVTransparency
+
+-- ==========================================
+-- HELPER FUNCTIONS
+-- ==========================================
+local function IsSameTeam(player)
+    if TeamCheck and LocalPlayer.Team and player.Team then
+        return LocalPlayer.Team == player.Team
+    end
+    return false
+end
+
+local function GetClosestTarget()
+    local ClosestPlayer = nil
+    local MaxDistance = FOVRadius
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and not IsSameTeam(v) and v.Character and v.Character:FindFirstChild(AimPart) and v.Character:FindFirstChildOfClass("Humanoid") then
+            if v.Character.Humanoid.Health > 0 then
+                local ScreenPos, OnScreen = Camera:WorldToViewportPoint(v.Character[AimPart].Position)
+                if OnScreen then
+                    local MousePos = Vector2.new(Mouse.X, Mouse.Y)
+                    local TargetPos = Vector2.new(ScreenPos.X, ScreenPos.Y)
+                    local Distance = (MousePos - TargetPos).Magnitude
+
+                    if Distance < MaxDistance then
+                        if not WallbangEnabled then
+                            local RayParams = RaycastParams.new()
+                            RayParams.FilterType = Enum.RaycastFilterType.Exclude
+                            RayParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+                            
+                            local Result = Workspace:Raycast(Camera.CFrame.Position, (v.Character[AimPart].Position - Camera.CFrame.Position), RayParams)
+                            if Result and Result.Instance:IsDescendantOf(v.Character) then
+                                MaxDistance = Distance
+                                ClosestPlayer = v
+                            end
+                        else
+                            MaxDistance = Distance
+                            ClosestPlayer = v
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return ClosestPlayer
+end
+
+local function GetPlayerList()
+    local list = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(list, p.Name)
+        end
+    end
+    if #list == 0 then table.insert(list, "ไม่พบผู้เล่นอื่น") end
+    return list
+end
+
+-- ==========================================
+-- HOOKS & CORE LOGIC
+-- ==========================================
+local mt = getrawmetatable(game)
+local oldIndex = mt.__index
+setreadonly(mt, false)
+
+mt.__index = newcclosure(function(self, index)
+    if not checkcaller() and SilentAimEnabled and index == "Hit" then
+        local Target = GetClosestTarget()
+        if Target and Target.Character and Target.Character:FindFirstChild(AimPart) then
+            return Target.Character[AimPart].CFrame
+        end
+    end
+    return oldIndex(self, index)
+end)
+
+setreadonly(mt, true)
+
+-- FOV Circle Loop
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Visible = ShowFOV and SilentAimEnabled
+    FOVCircle.Radius = FOVRadius
+    FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
+    FOVCircle.Transparency = FOVTransparency
+end)
+
+-- Hitbox Loop
+RunService.RenderStepped:Connect(function()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and not IsSameTeam(plr) and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = plr.Character.HumanoidRootPart
+            if not OriginalSizes[plr] then
+                OriginalSizes[plr] = hrp.Size
+            end
+
+            if HitboxEnabled and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 then
+                hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                hrp.Transparency = HitboxTransparency
+                hrp.Color = PrimaryColor
+                hrp.Material = Enum.Material.ForceField
+                hrp.CanCollide = false
+            else
+                if OriginalSizes[plr] then
+                    hrp.Size = OriginalSizes[plr]
+                    hrp.Transparency = 1
+                end
+            end
+        end
+    end
+end)
+
+-- Noclip Loop
+RunService.Stepped:Connect(function()
+    if NoclipEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Infinite Jump Hook
+UserInputService.JumpRequest:Connect(function()
+    if InfJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- WalkSpeed & JumpPower Loop
+RunService.RenderStepped:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if SpeedEnabled then hum.WalkSpeed = WalkSpeedValue end
+        if JumpEnabled then hum.JumpPower = JumpPowerValue end
+    end
+end)
+
+-- ==========================================
+-- ESP LOGIC
+-- ==========================================
+local function ClearESP(plr)
+    if ESPObjects[plr] then
+        for _, obj in pairs(ESPObjects[plr]) do
+            if typeof(obj) == "Instance" then obj:Destroy() end
+        end
+        ESPObjects[plr] = nil
+    end
+    if Tracers[plr] then
+        Tracers[plr]:Remove()
+        Tracers[plr] = nil
+    end
+    if NameTags[plr] then
+        NameTags[plr]:Remove()
+        NameTags[plr] = nil
+    end
+end
+
+local function UpdateESP()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            ClearESP(plr)
+            
+            if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 and not IsSameTeam(plr) then
+                ESPObjects[plr] = {}
+
+                if ESPMode == "Highlight" then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Parent = plr.Character
+                    highlight.FillColor = ESPColor
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.5
+                    highlight.OutlineTransparency = 0
+                    table.insert(ESPObjects[plr], highlight)
+
+                elseif ESPMode == "Box" then
+                    local box = Instance.new("SelectionBox")
+                    box.Adornee = plr.Character
+                    box.Color3 = ESPColor
+                    box.LineThickness = 0.05
+                    box.Parent = plr.Character
+                    table.insert(ESPObjects[plr], box)
+                end
+
+                if TracersEnabled then
+                    local line = Drawing.new("Line")
+                    line.Color = ESPColor
+                    line.Thickness = 1.5
+                    Tracers[plr] = line
+                end
+
+                if NameESPEnabled then
+                    local text = Drawing.new("Text")
+                    text.Color = Color3.fromRGB(255, 255, 255)
+                    text.Size = 16
+                    text.Center = true
+                    text.Outline = true
+                    NameTags[plr] = text
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    for plr, line in pairs(Tracers) do
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 then
+            local ScreenPos, OnScreen = Camera:WorldToViewportPoint(plr.Character.HumanoidRootPart.Position)
+            if OnScreen then
+                line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                line.To = Vector2.new(ScreenPos.X, ScreenPos.Y)
+                line.Visible = true
+            else
+                line.Visible = false
+            end
+        else
+            line.Visible = false
+        end
+    end
+
+    for plr, text in pairs(NameTags) do
+        if plr.Character and plr.Character:FindFirstChild("Head") and plr.Character:FindFirstChildOfClass("Humanoid") and plr.Character.Humanoid.Health > 0 then
+            local HeadPos = plr.Character.Head.Position + Vector3.new(0, 2, 0)
+            local ScreenPos, OnScreen = Camera:WorldToViewportPoint(HeadPos)
+            if OnScreen then
+                text.Position = Vector2.new(ScreenPos.X, ScreenPos.Y)
+                text.Text = plr.Name .. " [" .. math.floor(plr.Character.Humanoid.Health) .. " HP]"
+                text.Visible = true
+            else
+                text.Visible = false
+            end
+        else
+            text.Visible = false
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(1)
+        UpdateESP()
+    end)
+end)
+
+Players.PlayerRemoving:Connect(ClearESP)
+
+-- ==========================================
+-- NEW UI LAYOUT & STRUCTURED TABS
+-- ==========================================
+local CombatTab = Window:CreateTab("🎯 ระบบต่อสู้", "crosshair")
+local VisualsTab = Window:CreateTab("👁️ ระบบมอง (ESP)", "eye")
+local UtilityTab = Window:CreateTab("⚡ ฟังก์ชันตัวละคร", "user")
+local SystemTab = Window:CreateTab("⚙️ ตั้งค่าระบบ", "settings")
+
+-- ------------------------------------------
+-- 1. COMBAT TAB
+-- ------------------------------------------
+CombatTab:CreateSection("🎯 ล็อคเป้าอัตโนมัติ (Silent Aim)")
+
+CombatTab:CreateToggle({
+    Name = "เปิดใช้งาน Silent Aim",
+    CurrentValue = false,
+    Flag = "SilentAimToggle",
+    Callback = function(Value) SilentAimEnabled = Value end,
+})
+
+CombatTab:CreateToggle({
+    Name = "ยิงทะลุกำแพง (Wallbang)",
+    CurrentValue = false,
+    Flag = "WallbangToggle",
+    Callback = function(Value) WallbangEnabled = Value end,
+})
+
+CombatTab:CreateToggle({
+    Name = "เช็คทีมเดียวกัน (ไม่ยิงพวกเดียวกัน)",
+    CurrentValue = false,
+    Flag = "TeamCheckToggle",
+    Callback = function(Value) 
+        TeamCheck = Value 
+        UpdateESP()
+    end,
+})
+
+CombatTab:CreateDropdown({
+    Name = "ส่วนของร่างกายที่จะล็อค",
+    Options = {"Head", "HumanoidRootPart"},
+    CurrentOption = {"Head"},
+    MultipleOptions = false,
+    Flag = "AimPartDropdown",
+    Callback = function(Option) AimPart = Option[1] end,
+})
+
+CombatTab:CreateSection("⭕ ตั้งค่าวงกลม FOV")
+
+CombatTab:CreateToggle({
+    Name = "แสดงวงกลม FOV",
+    CurrentValue = false,
+    Flag = "ShowFOVToggle",
+    Callback = function(Value) ShowFOV = Value end,
+})
+
+CombatTab:CreateSlider({
+    Name = "ขนาดรัศมี FOV",
+    Range = {50, 500},
+    Increment = 10,
+    Suffix = " px",
+    CurrentValue = 150,
+    Flag = "FOVRadiusSlider",
+    Callback = function(Value) FOVRadius = Value end,
+})
+
+CombatTab:CreateSlider({
+    Name = "ความจางของวงกลม FOV",
+    Range = {0, 1},
+    Increment = 0.05,
+    Suffix = "",
+    CurrentValue = 0.8,
+    Flag = "FOVTransSlider",
+    Callback = function(Value) FOVTransparency = Value end,
+})
+
+CombatTab:CreateSection("📦 ขยายขนาดตัวศัตรู (Hitbox)")
+
+CombatTab:CreateToggle({
+    Name = "เปิดใช้งานขยาย Hitbox",
+    CurrentValue = false,
+    Flag = "HitboxToggle",
+    Callback = function(Value) HitboxEnabled = Value end,
+})
+
+CombatTab:CreateSlider({
+    Name = "ขนาด Hitbox",
+    Range = {2, 50},
+    Increment = 1,
+    Suffix = " studs",
+    CurrentValue = 2,
+    Flag = "HitboxSizeSlider",
+    Callback = function(Value) HitboxSize = Value end,
+})
+
+CombatTab:CreateSlider({
+    Name = "ความโปร่งใสของ Hitbox",
+    Range = {0, 1},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 0.5,
+    Flag = "HitboxTransSlider",
+    Callback = function(Value) HitboxTransparency = Value end,
+})
+
+-- ------------------------------------------
+-- 2. VISUALS TAB
+-- ------------------------------------------
+VisualsTab:CreateSection("👁️ มองทะลุ (Player ESP)")
+
+VisualsTab:CreateDropdown({
+    Name = "รูปแบบมองทะลุ",
+    Options = {"Off", "Box", "Highlight"},
+    CurrentOption = {"Off"},
+    MultipleOptions = false,
+    Flag = "ESPDropdown",
+    Callback = function(Option)
+        ESPMode = Option[1]
+        UpdateESP()
+    end,
+})
+
+VisualsTab:CreateColorPicker({
+    Name = "สีของมองทะลุ",
+    Color = Color3.fromRGB(255, 0, 128),
+    Flag = "ESPColorPicker",
+    Callback = function(Value)
+        ESPColor = Value
+        UpdateESP()
+    end
+})
+
+VisualsTab:CreateToggle({
+    Name = "เส้นชี้ตำแหน่งผู้เล่น (Tracers)",
+    CurrentValue = false,
+    Flag = "TracersToggle",
+    Callback = function(Value)
+        TracersEnabled = Value
+        UpdateESP()
+    end,
+})
+
+VisualsTab:CreateToggle({
+    Name = "แสดงชื่อและเลือด",
+    CurrentValue = false,
+    Flag = "NameESPToggle",
+    Callback = function(Value)
+        NameESPEnabled = Value
+        UpdateESP()
+    end,
+})
+
+VisualsTab:CreateSection("📷 มุมมองกล้อง")
+
+VisualsTab:CreateSlider({
+    Name = "ระยะมุมมองกล้อง (FOV)",
+    Range = {70, 120},
+    Increment = 1,
+    Suffix = "°",
+    CurrentValue = 70,
+    Flag = "CameraFOV",
+    Callback = function(Value)
+        Camera.FieldOfView = Value
+    end,
+})
+
+-- ------------------------------------------
+-- 3. PLAYER UTILITY TAB
+-- ------------------------------------------
+UtilityTab:CreateSection("🏃ปรับแต่งการเคลื่อนที่")
+
+UtilityTab:CreateToggle({
+    Name = "เปิดใช้งาน เดินเร็ว",
+    CurrentValue = false,
+    Flag = "SpeedToggle",
+    Callback = function(Value) SpeedEnabled = Value end,
+})
+
+UtilityTab:CreateSlider({
+    Name = "ความเร็วการเดิน (WalkSpeed)",
+    Range = {16, 200},
+    Increment = 1,
+    Suffix = " speed",
+    CurrentValue = 16,
+    Flag = "WalkSpeedSlider",
+    Callback = function(Value) WalkSpeedValue = Value end,
+})
+
+UtilityTab:CreateToggle({
+    Name = "เปิดใช้งาน กระโดดสูง",
+    CurrentValue = false,
+    Flag = "JumpToggle",
+    Callback = function(Value) JumpEnabled = Value end,
+})
+
+UtilityTab:CreateSlider({
+    Name = "แรงกระโดด (Jump Power)",
+    Range = {50, 300},
+    Increment = 5,
+    Suffix = " power",
+    CurrentValue = 50,
+    Flag = "JumpPowerSlider",
+    Callback = function(Value) JumpPowerValue = Value end,
+})
+
+UtilityTab:CreateToggle({
+    Name = "กระโดดไม่จำกัด (Inf Jump)",
+    CurrentValue = false,
+    Flag = "InfJumpToggle",
+    Callback = function(Value) InfJumpEnabled = Value end,
+})
+
+UtilityTab:CreateToggle({
+    Name = "เดินทะลุกำแพง (Noclip)",
+    CurrentValue = false,
+    Flag = "NoclipToggle",
+    Callback = function(Value) NoclipEnabled = Value end,
+})
+
+UtilityTab:CreateSection("📍 ระบบวาร์ป (Teleport)")
+
+local PlayerDropdown = UtilityTab:CreateDropdown({
+    Name = "เลือกผู้เล่นที่จะวาร์ปไปหา",
+    Options = GetPlayerList(),
+    CurrentOption = {GetPlayerList()[1] or ""},
+    MultipleOptions = false,
+    Flag = "PlayerTPDropdown",
+    Callback = function(Option)
+        SelectedPlayerName = Option[1]
+    end,
+})
+
+UtilityTab:CreateButton({
+    Name = "วาร์ปไปหาผู้เล่นที่เลือก",
+    Callback = function()
+        if SelectedPlayerName ~= "" and SelectedPlayerName ~= "ไม่พบผู้เล่นอื่น" then
+            local targetPlayer = Players:FindFirstChild(SelectedPlayerName)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                    Rayfield:Notify({
+                        Title = "ระบบวาร์ป",
+                        Content = "วาร์ปไปหา " .. SelectedPlayerName .. " สำเร็จ!",
+                        Duration = 3,
+                    })
+                end
+            end
+        end
+    end,
+})
+
+UtilityTab:CreateButton({
+    Name = "รีเฟรชรายชื่อผู้เล่น",
+    Callback = function()
+        PlayerDropdown:Refresh(GetPlayerList())
+    end,
+})
+
+-- ------------------------------------------
+-- 4. SYSTEM & SETTINGS TAB
+-- ------------------------------------------
+SystemTab:CreateSection("🎨 ปรับแต่งธีมและสีเมนู")
+
+SystemTab:CreateDropdown({
+    Name = "ธีมเมนู (GUI Theme)",
+    Options = {"Bloom", "Default", "Dark", "Ocean", "Amber", "Ruby", "Midnight", "Serenity"},
+    CurrentOption = {"Bloom"},
+    MultipleOptions = false,
+    Flag = "ThemeDropdown",
+    Callback = function(Option)
+        Window:ModifyTheme(Option[1])
+    end,
+})
+
+SystemTab:CreateColorPicker({
+    Name = "สีหลักของเมนู",
+    Color = Color3.fromRGB(180, 50, 255),
+    Flag = "PrimaryColorPicker",
+    Callback = function(Value)
+        PrimaryColor = Value
+        FOVCircle.Color = Value
+    end
+})
+
+SystemTab:CreateKeybind({
+    Name = "ปุ่ม เปิด/ปิด หน้าต่างเมนู",
+    CurrentKeybind = "RightControl",
+    HoldToInteract = false,
+    Flag = "UIKeybind",
+    Callback = function(Keybind)
+        -- จัดการโดยระบบ Rayfield อัตโนมัติ
+    end,
+})
+
+SystemTab:CreateSection("👑 ผู้พัฒนาและเครดิต")
+
+SystemTab:CreateParagraph({
+    Title = "☀️ Shadow Sun Hub V2",
+    Content = "ผู้พัฒนา: ซัน (Sun)\nเวอร์ชัน: 2.5 (ปรับปรุงระบบ UI)\nขับเคลื่อนโดย Rayfield Library"
+})
+
+SystemTab:CreateButton({
+    Name = "คัดลอกลิงก์ TikTok ผู้พัฒนา",
+    Callback = function()
+        setclipboard("https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg")
+        Rayfield:Notify({
+            Title = "คัดลอกเรียบร้อย",
+            Content = "คัดลอกลิงก์ TikTok ลงใน Clipboard แล้ว!",
+            Duration = 3,
+        })
+    end,
+})
+
+Rayfield:LoadConfiguration()
