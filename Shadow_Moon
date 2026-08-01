@@ -4,9 +4,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "⚡ Shadow Sun | สคริปต์ฮับพรีเมียม V2 ⚡",
-    LoadingTitle = "🌐 กำลังโหลดระบบ Shadow Sun Engine...",
-    LoadingSubtitle = "สร้างโดย: ซัน (Sun)",
+    Name = "⚡ Shadow Sun | Premium Hub V2.5 ⚡",
+    LoadingTitle = "🌐 Loading Shadow Sun Engine...",
+    LoadingSubtitle = "Created by ซัน (Sun)",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "ShadowSunHub",
@@ -28,6 +28,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
+local Stats = game:GetService("Stats")
+local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
@@ -81,6 +83,44 @@ FOVCircle.NumSides = 60
 FOVCircle.Filled = false
 FOVCircle.Visible = false
 FOVCircle.Transparency = FOVTransparency
+
+-- ==========================================
+-- MOBILE UI TOGGLE BUTTON (ปุ่มสำหรับมือถือ)
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+local UIStroke = Instance.new("UIStroke")
+
+ScreenGui.Name = "ShadowSunMobileUI"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+ToggleButton.Position = UDim2.new(0.02, 0, 0.2, 0)
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Font = Enum.Font.FredokaOne
+ToggleButton.Text = "☀️"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 24
+ToggleButton.Active = true
+ToggleButton.Draggable = true
+
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = ToggleButton
+
+UIStroke.Parent = ToggleButton
+UIStroke.Color = PrimaryColor
+UIStroke.Thickness = 2
+UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+ToggleButton.MouseButton1Click:Connect(function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightControl, false, game)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightControl, false, game)
+end)
 
 -- ==========================================
 -- HELPER FUNCTIONS
@@ -327,34 +367,35 @@ end)
 Players.PlayerRemoving:Connect(ClearESP)
 
 -- ==========================================
--- NEW UI LAYOUT & STRUCTURED TABS
+-- UI LAYOUT & STRUCTURED TABS
 -- ==========================================
-local CombatTab = Window:CreateTab("🎯 ระบบต่อสู้", "crosshair")
-local VisualsTab = Window:CreateTab("👁️ ระบบมอง (ESP)", "eye")
-local UtilityTab = Window:CreateTab("⚡ ฟังก์ชันตัวละคร", "user")
-local SystemTab = Window:CreateTab("⚙️ ตั้งค่าระบบ", "settings")
+local CombatTab = Window:CreateTab("🎯 Combat", "crosshair")
+local VisualsTab = Window:CreateTab("👁️ Visuals", "eye")
+local UtilityTab = Window:CreateTab("⚡ Player Utility", "user")
+local SystemTab = Window:CreateTab("⚙️ Settings", "settings")
+local CreditsTab = Window:CreateTab("👑 เครดิต & ผู้พัฒนา", "award")
 
 -- ------------------------------------------
 -- 1. COMBAT TAB
 -- ------------------------------------------
-CombatTab:CreateSection("🎯 ล็อคเป้าอัตโนมัติ (Silent Aim)")
+local AimSection = CombatTab:CreateSection("🎯 Silent Aim & Targeting")
 
 CombatTab:CreateToggle({
-    Name = "เปิดใช้งาน Silent Aim",
+    Name = "Enable Silent Aim",
     CurrentValue = false,
     Flag = "SilentAimToggle",
     Callback = function(Value) SilentAimEnabled = Value end,
 })
 
 CombatTab:CreateToggle({
-    Name = "ยิงทะลุกำแพง (Wallbang)",
+    Name = "Wallbang (Bypass Obstacles)",
     CurrentValue = false,
     Flag = "WallbangToggle",
     Callback = function(Value) WallbangEnabled = Value end,
 })
 
 CombatTab:CreateToggle({
-    Name = "เช็คทีมเดียวกัน (ไม่ยิงพวกเดียวกัน)",
+    Name = "Team Check",
     CurrentValue = false,
     Flag = "TeamCheckToggle",
     Callback = function(Value) 
@@ -364,25 +405,27 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateDropdown({
-    Name = "ส่วนของร่างกายที่จะล็อค",
+    Name = "Target Part",
     Options = {"Head", "HumanoidRootPart"},
     CurrentOption = {"Head"},
     MultipleOptions = false,
     Flag = "AimPartDropdown",
-    Callback = function(Option) AimPart = Option[1] end,
+    Callback = function(Option) 
+        AimPart = typeof(Option) == "table" and Option[1] or Option 
+    end,
 })
 
-CombatTab:CreateSection("⭕ ตั้งค่าวงกลม FOV")
+local FOVSection = CombatTab:CreateSection("⭕ FOV Settings")
 
 CombatTab:CreateToggle({
-    Name = "แสดงวงกลม FOV",
+    Name = "Show FOV Circle",
     CurrentValue = false,
     Flag = "ShowFOVToggle",
     Callback = function(Value) ShowFOV = Value end,
 })
 
 CombatTab:CreateSlider({
-    Name = "ขนาดรัศมี FOV",
+    Name = "FOV Radius",
     Range = {50, 500},
     Increment = 10,
     Suffix = " px",
@@ -392,7 +435,7 @@ CombatTab:CreateSlider({
 })
 
 CombatTab:CreateSlider({
-    Name = "ความจางของวงกลม FOV",
+    Name = "FOV Opacity",
     Range = {0, 1},
     Increment = 0.05,
     Suffix = "",
@@ -401,17 +444,17 @@ CombatTab:CreateSlider({
     Callback = function(Value) FOVTransparency = Value end,
 })
 
-CombatTab:CreateSection("📦 ขยายขนาดตัวศัตรู (Hitbox)")
+local HitboxSection = CombatTab:CreateSection("📦 Hitbox Extender")
 
 CombatTab:CreateToggle({
-    Name = "เปิดใช้งานขยาย Hitbox",
+    Name = "Expand Hitboxes",
     CurrentValue = false,
     Flag = "HitboxToggle",
     Callback = function(Value) HitboxEnabled = Value end,
 })
 
 CombatTab:CreateSlider({
-    Name = "ขนาด Hitbox",
+    Name = "Hitbox Size",
     Range = {2, 50},
     Increment = 1,
     Suffix = " studs",
@@ -421,7 +464,7 @@ CombatTab:CreateSlider({
 })
 
 CombatTab:CreateSlider({
-    Name = "ความโปร่งใสของ Hitbox",
+    Name = "Hitbox Transparency",
     Range = {0, 1},
     Increment = 0.1,
     Suffix = "",
@@ -433,22 +476,22 @@ CombatTab:CreateSlider({
 -- ------------------------------------------
 -- 2. VISUALS TAB
 -- ------------------------------------------
-VisualsTab:CreateSection("👁️ มองทะลุ (Player ESP)")
+VisualsTab:CreateSection("👁️ Player ESP")
 
 VisualsTab:CreateDropdown({
-    Name = "รูปแบบมองทะลุ",
+    Name = "ESP Style",
     Options = {"Off", "Box", "Highlight"},
     CurrentOption = {"Off"},
     MultipleOptions = false,
     Flag = "ESPDropdown",
     Callback = function(Option)
-        ESPMode = Option[1]
+        ESPMode = typeof(Option) == "table" and Option[1] or Option
         UpdateESP()
     end,
 })
 
 VisualsTab:CreateColorPicker({
-    Name = "สีของมองทะลุ",
+    Name = "ESP Color",
     Color = Color3.fromRGB(255, 0, 128),
     Flag = "ESPColorPicker",
     Callback = function(Value)
@@ -458,7 +501,7 @@ VisualsTab:CreateColorPicker({
 })
 
 VisualsTab:CreateToggle({
-    Name = "เส้นชี้ตำแหน่งผู้เล่น (Tracers)",
+    Name = "Tracers",
     CurrentValue = false,
     Flag = "TracersToggle",
     Callback = function(Value)
@@ -468,7 +511,7 @@ VisualsTab:CreateToggle({
 })
 
 VisualsTab:CreateToggle({
-    Name = "แสดงชื่อและเลือด",
+    Name = "Name & Health Tags",
     CurrentValue = false,
     Flag = "NameESPToggle",
     Callback = function(Value)
@@ -477,10 +520,10 @@ VisualsTab:CreateToggle({
     end,
 })
 
-VisualsTab:CreateSection("📷 มุมมองกล้อง")
+VisualsTab:CreateSection("📷 Camera Options")
 
 VisualsTab:CreateSlider({
-    Name = "ระยะมุมมองกล้อง (FOV)",
+    Name = "Field of View (FOV)",
     Range = {70, 120},
     Increment = 1,
     Suffix = "°",
@@ -494,17 +537,17 @@ VisualsTab:CreateSlider({
 -- ------------------------------------------
 -- 3. PLAYER UTILITY TAB
 -- ------------------------------------------
-UtilityTab:CreateSection("🏃ปรับแต่งการเคลื่อนที่")
+UtilityTab:CreateSection("🏃 Movement Modifiers")
 
 UtilityTab:CreateToggle({
-    Name = "เปิดใช้งาน เดินเร็ว",
+    Name = "Enable Speed Hack",
     CurrentValue = false,
     Flag = "SpeedToggle",
     Callback = function(Value) SpeedEnabled = Value end,
 })
 
 UtilityTab:CreateSlider({
-    Name = "ความเร็วการเดิน (WalkSpeed)",
+    Name = "WalkSpeed",
     Range = {16, 200},
     Increment = 1,
     Suffix = " speed",
@@ -514,14 +557,14 @@ UtilityTab:CreateSlider({
 })
 
 UtilityTab:CreateToggle({
-    Name = "เปิดใช้งาน กระโดดสูง",
+    Name = "Enable Jump Power Boost",
     CurrentValue = false,
     Flag = "JumpToggle",
     Callback = function(Value) JumpEnabled = Value end,
 })
 
 UtilityTab:CreateSlider({
-    Name = "แรงกระโดด (Jump Power)",
+    Name = "Jump Power",
     Range = {50, 300},
     Increment = 5,
     Suffix = " power",
@@ -531,34 +574,34 @@ UtilityTab:CreateSlider({
 })
 
 UtilityTab:CreateToggle({
-    Name = "กระโดดไม่จำกัด (Inf Jump)",
+    Name = "Infinite Jump",
     CurrentValue = false,
     Flag = "InfJumpToggle",
     Callback = function(Value) InfJumpEnabled = Value end,
 })
 
 UtilityTab:CreateToggle({
-    Name = "เดินทะลุกำแพง (Noclip)",
+    Name = "Noclip (Phase Walls)",
     CurrentValue = false,
     Flag = "NoclipToggle",
     Callback = function(Value) NoclipEnabled = Value end,
 })
 
-UtilityTab:CreateSection("📍 ระบบวาร์ป (Teleport)")
+UtilityTab:CreateSection("📍 Teleport Systems")
 
 local PlayerDropdown = UtilityTab:CreateDropdown({
-    Name = "เลือกผู้เล่นที่จะวาร์ปไปหา",
+    Name = "Select Target Player",
     Options = GetPlayerList(),
     CurrentOption = {GetPlayerList()[1] or ""},
     MultipleOptions = false,
     Flag = "PlayerTPDropdown",
     Callback = function(Option)
-        SelectedPlayerName = Option[1]
+        SelectedPlayerName = typeof(Option) == "table" and Option[1] or Option
     end,
 })
 
 UtilityTab:CreateButton({
-    Name = "วาร์ปไปหาผู้เล่นที่เลือก",
+    Name = "Teleport to Player",
     Callback = function()
         if SelectedPlayerName ~= "" and SelectedPlayerName ~= "ไม่พบผู้เล่นอื่น" then
             local targetPlayer = Players:FindFirstChild(SelectedPlayerName)
@@ -566,8 +609,8 @@ UtilityTab:CreateButton({
                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
                     Rayfield:Notify({
-                        Title = "ระบบวาร์ป",
-                        Content = "วาร์ปไปหา " .. SelectedPlayerName .. " สำเร็จ!",
+                        Title = "Teleport",
+                        Content = "Teleported to " .. SelectedPlayerName,
                         Duration = 3,
                     })
                 end
@@ -577,7 +620,7 @@ UtilityTab:CreateButton({
 })
 
 UtilityTab:CreateButton({
-    Name = "รีเฟรชรายชื่อผู้เล่น",
+    Name = "Refresh Player List",
     Callback = function()
         PlayerDropdown:Refresh(GetPlayerList())
     end,
@@ -586,56 +629,4 @@ UtilityTab:CreateButton({
 -- ------------------------------------------
 -- 4. SYSTEM & SETTINGS TAB
 -- ------------------------------------------
-SystemTab:CreateSection("🎨 ปรับแต่งธีมและสีเมนู")
-
-SystemTab:CreateDropdown({
-    Name = "ธีมเมนู (GUI Theme)",
-    Options = {"Bloom", "Default", "Dark", "Ocean", "Amber", "Ruby", "Midnight", "Serenity"},
-    CurrentOption = {"Bloom"},
-    MultipleOptions = false,
-    Flag = "ThemeDropdown",
-    Callback = function(Option)
-        Window:ModifyTheme(Option[1])
-    end,
-})
-
-SystemTab:CreateColorPicker({
-    Name = "สีหลักของเมนู",
-    Color = Color3.fromRGB(180, 50, 255),
-    Flag = "PrimaryColorPicker",
-    Callback = function(Value)
-        PrimaryColor = Value
-        FOVCircle.Color = Value
-    end
-})
-
-SystemTab:CreateKeybind({
-    Name = "ปุ่ม เปิด/ปิด หน้าต่างเมนู",
-    CurrentKeybind = "RightControl",
-    HoldToInteract = false,
-    Flag = "UIKeybind",
-    Callback = function(Keybind)
-        -- จัดการโดยระบบ Rayfield อัตโนมัติ
-    end,
-})
-
-SystemTab:CreateSection("👑 ผู้พัฒนาและเครดิต")
-
-SystemTab:CreateParagraph({
-    Title = "☀️ Shadow Sun Hub V2",
-    Content = "ผู้พัฒนา: ซัน (Sun)\nเวอร์ชัน: 2.5 (ปรับปรุงระบบ UI)\nขับเคลื่อนโดย Rayfield Library"
-})
-
-SystemTab:CreateButton({
-    Name = "คัดลอกลิงก์ TikTok ผู้พัฒนา",
-    Callback = function()
-        setclipboard("https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg")
-        Rayfield:Notify({
-            Title = "คัดลอกเรียบร้อย",
-            Content = "คัดลอกลิงก์ TikTok ลงใน Clipboard แล้ว!",
-            Duration = 3,
-        })
-    end,
-})
-
-Rayfield:LoadConfiguration()
+SystemTab:CreateSection("🎨 Int
