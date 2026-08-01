@@ -4,7 +4,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "⚡ Shadow Moon | สคริปต์ฮับพรีเมียม V2 ⚡",
+    Name = "⚡ Shadow Sun | สคริปต์ฮับพรีเมียม V2 ⚡",
     LoadingTitle = "🌐 กำลังโหลดระบบ Shadow Sun Engine...",
     LoadingSubtitle = "สร้างโดย: ซัน (Sun)",
     ConfigurationSaving = {
