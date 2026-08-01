@@ -1,0 +1,288 @@
+-- [[ Loading Rayfield UI Library ]] --
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- [[ Window Creation ]] --
+local Window = Rayfield:CreateWindow({
+   Name = "⚡ SUN HUB | Premium Edition ⚡",
+   LoadingTitle = "SUN HUB System Loading...",
+   LoadingSubtitle = "Created by sun_ggez0",
+   ConfigurationSaving = {
+      Enabled = false,
+   },
+   Discord = {
+      Enabled = false
+   },
+   KeySystem = false
+})
+
+-- [[ Floating Toggle Button (ปุ่มเปิด/ปิด UI) ]] --
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Name = "SunHubToggleGui"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Position = UDim2.new(0, 10, 0.4, 0)
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "⚡"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 215, 0)
+ToggleButton.TextSize = 28.0
+ToggleButton.Active = true
+ToggleButton.Draggable = true
+
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = ToggleButton
+
+local uiVisible = true
+ToggleButton.MouseButton1Click:Connect(function()
+   uiVisible = not uiVisible
+   local rayfieldGui = game:GetService("CoreGui"):FindFirstChild("Rayfield") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
+   if rayfieldGui then
+      rayfieldGui.Enabled = uiVisible
+   end
+end)
+
+-- [[ Variables & Services ]] --
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
+-- Feature States
+local SilentAimEnabled = false
+local FOVRadius = 120
+local FOVVisible = false
+local ESP_Box_Enabled = false
+local ESP_Tracer_Enabled = false
+
+-- Storage for ESP Drawings
+local ESP_Boxes = {}
+local ESP_Tracers = {}
+
+-- [[ Mobile FOV Circle ]] --
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 60
+FOVCircle.Filled = false
+FOVCircle.Transparency = 0.8
+FOVCircle.Color = Color3.fromRGB(255, 215, 0)
+FOVCircle.Radius = FOVRadius
+FOVCircle.Visible = false
+
+-- [[ Helper Functions ]] --
+local function RemoveESP(player)
+   if ESP_Boxes[player] then
+      ESP_Boxes[player]:Remove()
+      ESP_Boxes[player] = nil
+   end
+   if ESP_Tracers[player] then
+      ESP_Tracers[player]:Remove()
+      ESP_Tracers[player] = nil
+   end
+end
+
+local function GetClosestPlayerToCursor()
+    local closestPlayer = nil
+    local shortestDistance = FOVRadius
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("HumanoidRootPart") then
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- [[ TABS CREATION ]] --
+
+-- Tab 1: Main Functions
+local MainTab = Window:CreateTab("ฟังก์ชันหลัก 🎯", 4483362458)
+
+MainTab:CreateSection("ระบบช่วยเหลือการยิง (Aimbot System)")
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน Silent Aim (ล็อคเป้าเนียน)",
+   CurrentValue = false,
+   Flag = "SilentAimToggle",
+   Callback = function(Value)
+      SilentAimEnabled = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "แสดงวงกลม FOV (สำหรับมือถือ)",
+   CurrentValue = false,
+   Flag = "FOVVisibleToggle",
+   Callback = function(Value)
+      FOVVisible = Value
+      FOVCircle.Visible = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ขนาดวงกลม FOV",
+   Range = {30, 350},
+   Increment = 5,
+   Suffix = "px",
+   CurrentValue = 120,
+   Flag = "FOVSlider",
+   Callback = function(Value)
+      FOVRadius = Value
+      FOVCircle.Radius = Value
+   end,
+})
+
+MainTab:CreateSection("ระบบการมองเห็น (Visuals / ESP)")
+
+MainTab:CreateToggle({
+   Name = "ESP กล่อง (Box ESP)",
+   CurrentValue = false,
+   Flag = "ESPBoxToggle",
+   Callback = function(Value)
+      ESP_Box_Enabled = Value
+      if not Value then
+         for _, box in pairs(ESP_Boxes) do
+            box.Visible = false
+         end
+      end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "ESP เส้นโยง (Tracers ESP)",
+   CurrentValue = false,
+   Flag = "ESPTracerToggle",
+   Callback = function(Value)
+      ESP_Tracer_Enabled = Value
+      if not Value then
+         for _, line in pairs(ESP_Tracers) do
+            line.Visible = false
+         end
+      end
+   end,
+})
+
+-- Tab 2: Credits & Links
+local CreditTab = Window:CreateTab("ผู้พัฒนา 👑", 4483362458)
+
+CreditTab:CreateSection("ผู้พัฒนาสคริปต์")
+
+CreditTab:CreateLabel("Developer: sun_ggez0")
+
+CreditTab:CreateSection("การเชื่อมต่อ & ติดตาม")
+
+CreditTab:CreateButton({
+   Name = "คัดลอกลิงก์ TikTok",
+   Callback = function()
+      setclipboard("https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg")
+      Rayfield:Notify({
+         Title = "คัดลอกสำเร็จ!",
+         Content = "คัดลอกลิงก์ TikTok ของผู้พัฒนาเรียบร้อยแล้ว",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
+
+-- [[ Main Engine & Loops ]] --
+
+-- Hooking Engine สำหรับ Silent Aim
+local meta = getrawmetatable(game)
+local oldNamecall = meta.__namecall
+setreadonly(meta, false)
+
+meta.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if SilentAimEnabled and (method == "FindPartOnRayWithIgnoreList" or method == "Raycast" or method == "FindPartOnRay") then
+        local target = GetClosestPlayerToCursor()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            return target.Character.Head
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+setreadonly(meta, true)
+
+-- ESP & FOV Render Loop
+RunService.RenderStepped:Connect(function()
+   -- อัปเดตตำแหน่งวงกลม FOV ให้อยู่กลางจอเสมอ
+   FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+   -- อัปเดตตำแหน่ง ESP
+   for _, player in pairs(Players:GetPlayers()) do
+      if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("HumanoidRootPart") then
+         local hrp = player.Character.HumanoidRootPart
+         local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+         -- Box ESP
+         if ESP_Box_Enabled and onScreen then
+            if not ESP_Boxes[player] then
+               local box = Drawing.new("Square")
+               box.Color = Color3.fromRGB(255, 50, 50)
+               box.Thickness = 1.5
+               box.Filled = false
+               ESP_Boxes[player] = box
+            end
+
+            local box = ESP_Boxes[player]
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+               local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+               local legPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+               local height = math.abs(headPos.Y - legPos.Y)
+               local width = height / 2
+
+               box.Size = Vector2.new(width, height)
+               box.Position = Vector2.new(vector.X - width / 2, vector.Y - height / 2)
+               box.Visible = true
+            end
+         else
+            if ESP_Boxes[player] then
+               ESP_Boxes[player].Visible = false
+            end
+         end
+
+         -- Tracer Line ESP
+         if ESP_Tracer_Enabled and onScreen then
+            if not ESP_Tracers[player] then
+               local line = Drawing.new("Line")
+               line.Color = Color3.fromRGB(0, 255, 150)
+               line.Thickness = 1.5
+               ESP_Tracers[player] = line
+            end
+
+            local line = ESP_Tracers[player]
+            line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            line.To = Vector2.new(vector.X, vector.Y)
+            line.Visible = true
+         else
+            if ESP_Tracers[player] then
+               ESP_Tracers[player].Visible = false
+            end
+         end
+      else
+         RemoveESP(player)
+      end
+   end
+end)
+
+-- ล้าง Drawing เมื่อผู้เล่นออกจากเซิร์ฟเวอร์
+Players.PlayerRemoving:Connect(function(player)
+   RemoveESP(player)
+end)
